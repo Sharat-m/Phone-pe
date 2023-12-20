@@ -1,7 +1,12 @@
+export function APIRequest(){
+
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
 const axios = require("axios");
+const { error } = require("console");
+
+
 
 function generateTransctionID() {
     const timestamp = Date.now();
@@ -11,19 +16,18 @@ function generateTransctionID() {
     return transctionID;
 }
 
-router.post("/payment", async (req, res) => {
+
+function callApi(amount) {
     try {
-        const { name, number, amount } = req.body
+        // const { name, number, amount } = req.body
         const data = {
             merchantId: "PGTESTPAYUAT",
             merchantTransactionId: generateTransctionID(),
             merchantUserId: "MUID123",
-            name: name,
-            amount: 100 * 100,
-            redirectUrl: "https://webhook.site/redirect-url",
-            redirectMode: "REDIRECT",
+            amount: amount,
+            redirectUrl: `https://localhost:5000/api/phonepe/status`,
+            redirectMode: "POST",
             callbackUrl: "https://webhook.site/callback-url",
-            mobileNumber: number,
             paymentInstrument: {
                 type: "PAY_PAGE"
             }
@@ -70,4 +74,40 @@ res.status(500).send({
     success: false
 })
     }
+}
+
+// check status
+router.post('/status', async(req, res) => {
+    //return console.log(res.req.body);
+    const merchantTransactionId = res.req.body.merchantTransactionId
+    const merchantId = res.req.body.merchantId
+    const salt_key = '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399';
+    const index_key = 1;
+    const string = `/pg/v1/status/${merchantId}/${merchantTransactionId}`+ salt_key;
+    const sha256 = crypto.createHash('sha256').update(string).digest('hex');
+    const checkSum = sha256 + '###' + index_key;
+
+
+    const URL = `https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/status/${merchantId}/${merchantTransactionId}`
+
+    const options = {
+        method: 'GET',
+        url: URL,
+        headers: {
+            accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-VERIFY': checkSum,
+            'X-MERCHANT-ID' : merchantId
+        }
+        };
+axios.request(options).then(async(response)=> {
+    console.log(response);
 })
+.catch((error) =>{
+console.log(error);
+});
+
+});
+
+module.exports = router;
+}
